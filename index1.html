@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpsLab</title>
+<meta name="description" content="Industrial engineering calculators: Economic Order Quantity and Overall Equipment Effectiveness.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: shop-floor control panel — a narrow work column, input "panel" on the left, readout on the right, safety-yellow reserved for the one result that matters */
+:root{
+  --bg:#eef0f2; --surface:#ffffff; --ink:#16202a; --muted:#5b6774; --line:#d3d8de;
+  --accent:#f2b705; --accent-ink:#1a1400; --steel:#2f5f8a; --hold:#b4572e; --good:#2f8a5b; --warn:#c98a00; --bad:#c0392b;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161b; --surface:#1a2129; --ink:#e7ebef; --muted:#97a3af; --line:#2c3640;
+  --accent:#f5c22e; --accent-ink:#1a1400; --steel:#6fa3d4; --hold:#e0855a; --good:#55c08a; --warn:#e8b234; --bad:#ec6a5c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161b; --surface:#1a2129; --ink:#e7ebef; --muted:#97a3af; --line:#2c3640;
+  --accent:#f5c22e; --accent-ink:#1a1400; --steel:#6fa3d4; --hold:#e0855a; --good:#55c08a; --warn:#e8b234; --bad:#ec6a5c; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px}
+a{color:inherit}
+
+header.top{border-bottom:1px solid var(--line);background:var(--surface)}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
+.brand{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:19px;letter-spacing:.01em;text-decoration:none;display:flex;align-items:center;gap:10px}
+.brand .mark{width:26px;height:26px;background:repeating-linear-gradient(-45deg,var(--accent) 0 6px,var(--ink) 6px 12px);border-radius:4px}
+nav.links{display:flex;gap:20px;font-size:14px}
+nav.links a{text-decoration:none;color:var(--muted)}
+nav.links a:hover{color:var(--ink)}
+
+.hero{padding-block:44px 28px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:clamp(34px,6vw,58px);line-height:1;margin:.25em 0 .3em;text-wrap:balance}
+h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent) 62%)}
+.lede{max-width:60ch;color:var(--muted);font-size:17px;margin:0}
+
+.tabs{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;border-bottom:2px solid var(--ink);margin-top:8px;scroll-margin-top:12px}
+.tab{appearance:none;border:0;background:transparent;color:var(--muted);font:600 15px var(--body);padding:12px 18px;cursor:pointer;border-radius:6px 6px 0 0;display:flex;gap:8px;align-items:baseline;flex:none;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+@media (max-width:520px){.tab{padding:10px 12px;font-size:14px}}
+.tab small{font-family:var(--mono);font-weight:400;font-size:11px}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.panel{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:28px;padding-block:28px 12px}
+@media (max-width:760px){.panel{grid-template-columns:1fr}}
+.inputs{display:flex;flex-direction:column;gap:14px}
+.field label{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;margin-bottom:5px}
+.field label span{font-family:var(--mono);font-weight:400;color:var(--muted);font-size:12px}
+.field input,.field select{width:100%;font:500 16px var(--mono);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-variant-numeric:tabular-nums}
+.field input:hover{border-color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.btn{font:600 14px var(--body);border-radius:6px;padding:10px 16px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.err{color:var(--bad);font-size:13px;min-height:1.2em;margin:0}
+
+.readout{min-width:0;display:flex;flex-direction:column;gap:18px}
+.hero-num{background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.hero-num .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.hero-num .val{font-family:var(--display);font-stretch:110%;font-weight:800;font-size:clamp(38px,6vw,54px);line-height:1;font-variant-numeric:tabular-nums}
+.hero-num .unit{font-family:var(--mono);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media (max-width:480px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--surface);padding:12px 14px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:19px;font-weight:500;font-variant-numeric:tabular-nums;margin-top:2px}
+
+.chartbox{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 14px 8px;overflow-x:auto}
+.chartbox h3{font:600 14px var(--body);margin:0 0 4px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+svg text{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+
+.factors{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.factor .top{display:flex;justify-content:space-between;font-size:14px;font-weight:600}
+.factor .top span{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.factor .sub{font-size:12px;color:var(--muted);margin:2px 0 6px}
+.bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.bar>div{height:100%;background:var(--steel);border-radius:5px;transition:width .35s ease}
+.pill{display:inline-block;font:600 12px var(--mono);padding:4px 10px;border-radius:999px;border:1px solid currentColor}
+.pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.note{font-size:13px;color:var(--muted);margin:0}
+
+.formula{font-family:var(--mono);font-size:13px;background:var(--surface);border:1px dashed var(--line);border-radius:6px;padding:10px 12px;overflow-x:auto;white-space:nowrap}
+
+#history table{width:100%;border-collapse:collapse;font-size:14px}
+#history .tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+#history th,#history td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+#history th{font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+#history td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+#history tr:last-child td{border-bottom:0}
+.tag{font:600 11px var(--mono);padding:2px 7px;border-radius:4px;background:var(--ink);color:var(--bg)}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+.histhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-block:28px 14px}
+.histhead h2{font-family:var(--display);font-stretch:115%;font-size:24px;margin:0}
+
+.statusline{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:14px}
+.pill.solid-bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.pill.solid-good{background:var(--good);border-color:var(--good);color:#fff}
+.linkbtn{appearance:none;border:0;background:none;padding:0;font:500 12px var(--body);color:var(--steel);text-decoration:underline;cursor:pointer}
+
+.panel.wide{grid-template-columns:minmax(0,400px) minmax(0,1fr)}
+@media (max-width:760px){.panel.wide{grid-template-columns:1fr}}
+.taskwrap{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:6px}
+.tasks{width:100%;border-collapse:collapse}
+.tasks th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:2px 4px 4px}
+.tasks td{padding:3px 4px}
+.tasks input{width:100%;font:500 14px var(--mono);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:7px 8px}
+.tasks .idc{width:58px} .tasks .tc{width:84px} .tasks .xc{width:36px}
+.xbtn{width:30px;height:32px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:5px;cursor:pointer;font-size:16px;line-height:1}
+.xbtn:hover{color:var(--bad);border-color:var(--bad)}
+.stations{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.stations li{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.stations li:last-child{border-bottom:0}
+.stations b{font-family:var(--mono)}
+.stations span{font-family:var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+#problem{padding-block:8px 36px}
+#problem h2{font-family:var(--display);font-stretch:115%;font-size:clamp(22px,3.4vw,28px);line-height:1.15;margin:.3em 0 22px;max-width:30ch;text-wrap:balance}
+.pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+@media (max-width:760px){.pgrid{grid-template-columns:1fr;gap:20px}}
+.pcol{border-top:2px solid var(--ink);padding-top:12px;min-width:0}
+.pcol.fix{border-top-color:var(--accent)}
+.pcol h3{font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;margin:0 0 8px;color:var(--muted)}
+.pcol p{margin:0;font-size:15px;max-width:42ch}
+.pcol p strong{font-weight:600}
+
+#formulas{padding-block:56px 0}
+#formulas h2{font-family:var(--display);font-stretch:115%;font-size:clamp(26px,4vw,34px);margin:.2em 0 .2em}
+#formulas .lede{margin-bottom:24px}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media (max-width:720px){.fgrid{grid-template-columns:1fr}}
+.fcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.fcard h3{font-family:var(--display);font-stretch:110%;font-size:18px;margin:0}
+.fcard .q{font-size:13px;color:var(--muted);margin:-6px 0 0}
+.fcard .formula{line-height:1.8}
+.fcard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
+.fcard dt{font-family:var(--mono);font-weight:500}
+.fcard dd{margin:0;color:var(--muted)}
+.ex{font-size:13px;background:var(--bg);border-radius:6px;padding:10px 12px;line-height:1.6}
+.ex strong{display:block;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.ex code{font-family:var(--mono);font-size:12.5px}
+
+#pricing{padding-block:56px 8px}
+#pricing h2{font-family:var(--display);font-stretch:115%;font-size:clamp(26px,4vw,34px);margin:.2em 0 .2em}
+#pricing .lede{margin-bottom:24px}
+.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;max-width:820px}
+@media (max-width:640px){.plans{grid-template-columns:1fr}}
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative}
+.plan.pro{border:2px solid var(--ink)}
+.plan .badge{position:absolute;top:-12px;left:24px;background:var(--accent);color:var(--accent-ink);font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:4px}
+.plan h3{font-family:var(--display);font-stretch:115%;font-size:20px;margin:0}
+.plan .who{font-size:13px;color:var(--muted);margin:-8px 0 0}
+.price{display:flex;align-items:baseline;gap:6px}
+.price b{font-family:var(--display);font-stretch:110%;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.price span{color:var(--muted);font-size:14px}
+.plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;font-size:14px;flex:1}
+.plan li{display:flex;gap:10px;align-items:flex-start}
+.plan li::before{content:"";flex:none;width:14px;height:8px;margin-top:5px;border-left:2px solid var(--good);border-bottom:2px solid var(--good);transform:rotate(-45deg)}
+.plan li.no{color:var(--muted)}
+.plan li.no::before{width:12px;height:0;border-left:0;border-bottom:2px solid var(--muted);transform:none;margin-top:10px}
+.plan .btn{text-align:center;text-decoration:none}
+.plan-msg{font-size:13px;color:var(--good);min-height:1.2em;margin:0}
+
+footer{border-top:1px solid var(--line);margin-top:48px}
+footer .wrap{padding-block:20px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){.bar>div{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><span class="mark" aria-hidden="true"></span>OpsLab</a>
+    <nav class="links"><a href="#problem">Problem</a><a href="#calc">Calculators</a><a href="#formulas">Formulas</a><a href="#history">History</a><a href="#pricing">Pricing</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Built for industrial engineers</div>
+    <h1>Decide <em>how much</em> to order. See <em>how well</em> the line runs.</h1>
+    <p class="lede">Four everyday IE calculations in one place: order quantity and safety stock for inventory, OEE and line balancing for production. Example values are pre-filled so you can see how each one works.</p>
+  </section>
+
+  <section id="problem">
+    <div class="eyebrow">The problem</div>
+    <h2>Inventory and production decisions are still made by guesswork.</h2>
+    <div class="pgrid">
+      <div class="pcol">
+        <h3>What goes wrong</h3>
+        <p>Many small and mid-sized manufacturers size orders, set reorder points and plan assembly stations by gut feeling or in scattered spreadsheets. <strong>Order too much and cash sits on the shelf. Order too late and the line stops waiting for parts.</strong></p>
+      </div>
+      <div class="pcol">
+        <h3>Who faces it</h3>
+        <p>Production planners, inventory managers and industrial engineering students who need a correct answer quickly, without building a new spreadsheet model every time.</p>
+      </div>
+      <div class="pcol fix">
+        <h3>How OpsLab solves it</h3>
+        <p>Enter a few numbers and get the answer in seconds, with a chart and the formula behind it. <strong>The decision is easy to check and easy to explain</strong> to a manager or a professor.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="calc">
+    <div class="tabs" role="tablist" id="tablist">
+      <button class="tab" role="tab" id="tab-eoq" aria-selected="true" aria-controls="p-eoq">EOQ <small>Inventory</small></button>
+      <button class="tab" role="tab" id="tab-ss" aria-selected="false" aria-controls="p-ss">Safety stock <small>Inventory</small></button>
+      <button class="tab" role="tab" id="tab-oee" aria-selected="false" aria-controls="p-oee">OEE <small>Production</small></button>
+      <button class="tab" role="tab" id="tab-lb" aria-selected="false" aria-controls="p-lb">Line balancing <small>Production</small></button>
+    </div>
+
+    <!-- EOQ -->
+    <div class="panel" id="p-eoq" role="tabpanel" aria-labelledby="tab-eoq">
+      <form class="inputs" id="f-eoq" novalidate>
+        <div class="field"><label for="eoq-d">Annual demand (D) <span>units / year</span></label><input id="eoq-d" type="number" min="0" step="any" value="12000"></div>
+        <div class="field"><label for="eoq-s">Ordering cost (S) <span>per order</span></label><input id="eoq-s" type="number" min="0" step="any" value="150"></div>
+        <div class="field"><label for="eoq-h">Holding cost (H) <span>per unit / year</span></label><input id="eoq-h" type="number" min="0" step="any" value="4"></div>
+        <div class="row2">
+          <div class="field"><label for="eoq-days">Working days</label><input id="eoq-days" type="number" min="1" step="1" value="250"></div>
+          <div class="field"><label for="eoq-cur">Currency</label><select id="eoq-cur"><option>₺</option><option>$</option><option>€</option></select></div>
+        </div>
+        <p class="err" id="eoq-err" role="alert"></p>
+        <div class="btns"><button class="btn" type="submit">Calculate &amp; save</button><button class="btn ghost" type="button" id="eoq-reset">Reset example</button></div>
+        <div class="formula">Q* = √(2·D·S / H)</div>
+      </form>
+      <div class="readout">
+        <div class="hero-num"><div><div class="lbl">Optimal order quantity Q*</div><div class="val" id="eoq-q">–</div></div><div class="unit">units / order</div></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Orders per year</div><div class="v" id="eoq-n">–</div></div>
+          <div class="stat"><div class="k">Days between orders</div><div class="v" id="eoq-t">–</div></div>
+          <div class="stat"><div class="k">Total annual cost</div><div class="v" id="eoq-tc">–</div></div>
+        </div>
+        <div class="chartbox">
+          <h3>Annual cost vs. order quantity</h3>
+          <div class="legend"><span><i style="background:var(--steel)"></i>Ordering (D/Q)·S</span><span><i style="background:var(--hold)"></i>Holding (Q/2)·H</span><span><i style="background:var(--ink)"></i>Total</span></div>
+          <svg id="eoq-chart" viewBox="0 0 600 280" width="100%" role="img" aria-label="Cost curves with minimum total cost at Q*"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- OEE -->
+    <div class="panel" id="p-oee" role="tabpanel" aria-labelledby="tab-oee" hidden>
+      <form class="inputs" id="f-oee" novalidate>
+        <div class="field"><label for="oee-pt">Planned production time <span>min</span></label><input id="oee-pt" type="number" min="0" step="any" value="420"><p class="hint">Shift length minus planned breaks.</p></div>
+        <div class="field"><label for="oee-dt">Unplanned downtime <span>min</span></label><input id="oee-dt" type="number" min="0" step="any" value="47"></div>
+        <div class="field"><label for="oee-ct">Ideal cycle time <span>sec / unit</span></label><input id="oee-ct" type="number" min="0" step="any" value="1"></div>
+        <div class="row2">
+          <div class="field"><label for="oee-tot">Total units</label><input id="oee-tot" type="number" min="0" step="1" value="19271"></div>
+          <div class="field"><label for="oee-rej">Defective</label><input id="oee-rej" type="number" min="0" step="1" value="423"></div>
+        </div>
+        <p class="err" id="oee-err" role="alert"></p>
+        <div class="btns"><button class="btn" type="submit">Calculate &amp; save</button><button class="btn ghost" type="button" id="oee-reset">Reset example</button></div>
+        <div class="formula">OEE = Availability × Performance × Quality</div>
+      </form>
+      <div class="readout">
+        <div class="hero-num"><div><div class="lbl">Overall Equipment Effectiveness</div><div class="val" id="oee-v">–</div></div><span class="pill" id="oee-pill" style="color:var(--accent-ink)">–</span></div>
+        <div class="factors">
+          <div class="factor"><div class="top">Availability <span id="oee-a">–</span></div><div class="sub">Run time ÷ planned time</div><div class="bar"><div id="oee-ab"></div></div></div>
+          <div class="factor"><div class="top">Performance <span id="oee-p">–</span></div><div class="sub">(Ideal cycle time × total units) ÷ run time</div><div class="bar"><div id="oee-pb"></div></div></div>
+          <div class="factor"><div class="top">Quality <span id="oee-qv">–</span></div><div class="sub">Good units ÷ total units</div><div class="bar"><div id="oee-qb"></div></div></div>
+        </div>
+        <p class="note" id="oee-note"></p>
+      </div>
+    </div>
+
+    <!-- Safety stock / ROP -->
+    <div class="panel" id="p-ss" role="tabpanel" aria-labelledby="tab-ss" hidden>
+      <form class="inputs" id="f-ss" novalidate>
+        <div class="row2">
+          <div class="field"><label for="ss-d">Avg. daily demand <span>d</span></label><input id="ss-d" type="number" min="0" step="any" value="48"></div>
+          <div class="field"><label for="ss-sd">Std. deviation <span>σ</span></label><input id="ss-sd" type="number" min="0" step="any" value="8"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="ss-l">Lead time <span>days</span></label><input id="ss-l" type="number" min="0" step="any" value="5"></div>
+          <div class="field"><label for="ss-z">Service level</label><select id="ss-z"><option value="90">90%</option><option value="95" selected>95%</option><option value="97.5">97.5%</option><option value="99">99%</option><option value="99.9">99.9%</option></select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="ss-q">Order quantity <span>units</span></label><input id="ss-q" type="number" min="0" step="any" value="949"><p class="hint"><button type="button" class="linkbtn" id="ss-useq">Use Q* from EOQ</button></p></div>
+          <div class="field"><label for="ss-oh">Stock on hand <span>units</span></label><input id="ss-oh" type="number" min="0" step="any" value="400"></div>
+        </div>
+        <p class="err" id="ss-err" role="alert"></p>
+        <div class="btns"><button class="btn" type="submit">Calculate &amp; save</button><button class="btn ghost" type="button" id="ss-reset">Reset example</button></div>
+        <div class="formula">SS = z·σ·√L &nbsp;·&nbsp; ROP = d·L + SS</div>
+      </form>
+      <div class="readout">
+        <div class="hero-num"><div><div class="lbl">Reorder point (ROP)</div><div class="val" id="ss-rop">–</div></div><div class="unit">units in stock</div></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Safety stock</div><div class="v" id="ss-ss">–</div></div>
+          <div class="stat"><div class="k">Demand during lead time</div><div class="v" id="ss-dl">–</div></div>
+          <div class="stat"><div class="k">z-value</div><div class="v" id="ss-zv">–</div></div>
+        </div>
+        <div class="statusline"><span class="pill" id="ss-pill">–</span><span id="ss-status"></span></div>
+        <div class="chartbox">
+          <h3>Inventory level over time</h3>
+          <div class="legend"><span><i style="background:var(--ink)"></i>Stock level</span><span><i style="background:var(--steel)"></i>Reorder point</span><span><i style="background:var(--hold)"></i>Safety stock</span><span><i style="background:var(--accent);height:8px;width:8px;border-radius:50%"></i>Order placed</span></div>
+          <svg id="ss-chart" viewBox="0 0 600 260" width="100%" role="img" aria-label="Sawtooth inventory chart with reorder point and safety stock"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line balancing -->
+    <div class="panel wide" id="p-lb" role="tabpanel" aria-labelledby="tab-lb" hidden>
+      <form class="inputs" id="f-lb" novalidate>
+        <div class="row2">
+          <div class="field"><label for="lb-time">Available time <span>min / shift</span></label><input id="lb-time" type="number" min="0" step="any" value="420"></div>
+          <div class="field"><label for="lb-dem">Demand <span>units / shift</span></label><input id="lb-dem" type="number" min="0" step="any" value="500"></div>
+        </div>
+        <div class="field">
+          <label>Tasks <span>time in seconds</span></label>
+          <div class="taskwrap"><table class="tasks">
+            <thead><tr><th>Task</th><th>Time</th><th>Must follow</th><th></th></tr></thead>
+            <tbody id="lb-body"></tbody>
+          </table></div>
+          <p class="hint">"Must follow" lists the tasks that come right before, e.g. <code>F, G</code>. Leave empty if none.</p>
+        </div>
+        <p class="err" id="lb-err" role="alert"></p>
+        <div class="btns"><button class="btn ghost" type="button" id="lb-add">+ Add task</button><button class="btn" type="submit">Calculate &amp; save</button><button class="btn ghost" type="button" id="lb-reset">Reset example</button></div>
+      </form>
+      <div class="readout">
+        <div class="hero-num"><div><div class="lbl">Takt time</div><div class="val" id="lb-takt">–</div></div><div class="unit">sec / unit</div></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Min. stations (theory)</div><div class="v" id="lb-min">–</div></div>
+          <div class="stat"><div class="k">Stations used</div><div class="v" id="lb-n">–</div></div>
+          <div class="stat"><div class="k">Line efficiency</div><div class="v" id="lb-eff">–</div></div>
+        </div>
+        <div class="chartbox">
+          <h3>Station load vs. takt time</h3>
+          <div class="legend"><span><i style="background:var(--steel)"></i>Station work time</span><span><i style="background:var(--ink)"></i>Bottleneck</span><span><i style="background:var(--hold)"></i>Takt time</span></div>
+          <svg id="lb-chart" viewBox="0 0 600 250" width="100%" role="img" aria-label="Bar chart of work time per station against takt time"></svg>
+        </div>
+        <ol class="stations" id="lb-list"></ol>
+        <p class="note" id="lb-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="formulas">
+    <div class="eyebrow">How it works</div>
+    <h2>The formulas behind each result</h2>
+    <p class="lede">Every calculator uses the standard textbook formula. Each worked example below uses the example values pre-filled in the tool, so you can check the result yourself.</p>
+    <div class="fgrid">
+      <article class="fcard">
+        <h3>Economic Order Quantity</h3>
+        <p class="q">How many units should I order each time?</p>
+        <div class="formula">Q* = √(2·D·S / H)<br>TC = (D/Q)·S + (Q/2)·H</div>
+        <dl><dt>D</dt><dd>Annual demand (units/year)</dd><dt>S</dt><dd>Cost of placing one order</dd><dt>H</dt><dd>Cost of holding one unit for a year</dd><dt>TC</dt><dd>Total annual ordering + holding cost</dd></dl>
+        <div class="ex"><strong>Worked example</strong><code>Q* = √(2·12,000·150 / 4) = √900,000 ≈ 949 units</code><br>That means 12,000 / 949 ≈ 12.6 orders a year. At Q* the ordering cost and the holding cost are equal (₺1,897 each), so TC ≈ ₺3,795.</div>
+      </article>
+      <article class="fcard">
+        <h3>Safety Stock &amp; Reorder Point</h3>
+        <p class="q">When should I place the next order?</p>
+        <div class="formula">SS = z·σ·√L<br>ROP = d·L + SS</div>
+        <dl><dt>d</dt><dd>Average daily demand</dd><dt>σ</dt><dd>Standard deviation of daily demand</dd><dt>L</dt><dd>Lead time in days</dd><dt>z</dt><dd>z-score for the service level (95% → 1.645)</dd></dl>
+        <div class="ex"><strong>Worked example</strong><code>SS = 1.645·8·√5 ≈ 29 units</code><br>Demand during the 5-day lead time is 48·5 = 240 units, so ROP = 240 + 29 = 269. With 400 units on hand, no order is needed yet.</div>
+      </article>
+      <article class="fcard">
+        <h3>Overall Equipment Effectiveness</h3>
+        <p class="q">How much of the planned time is truly productive?</p>
+        <div class="formula">A = Run time / Planned time<br>P = (Ideal cycle × Total units) / Run time<br>Q = Good units / Total units<br>OEE = A × P × Q</div>
+        <dl><dt>A</dt><dd>Availability: losses from breakdowns and changeovers</dd><dt>P</dt><dd>Performance: losses from slow cycles and small stops</dd><dt>Q</dt><dd>Quality: losses from defects and rework</dd></dl>
+        <div class="ex"><strong>Worked example</strong>Run time = 420 − 47 = 373 min, so A = 88.8%. P = 19,271·1 s / 22,380 s = 86.1%. Q = 18,848 / 19,271 = 97.8%.<br><code>OEE = 0.888 × 0.861 × 0.978 ≈ 74.8%</code></div>
+      </article>
+      <article class="fcard">
+        <h3>Takt Time &amp; Line Balancing</h3>
+        <p class="q">How many stations does the line need?</p>
+        <div class="formula">Takt = Available time / Demand<br>N_min = ⌈Σt / Takt⌉<br>Efficiency = Σt / (N · Takt)</div>
+        <dl><dt>Σt</dt><dd>Sum of all task times</dd><dt>N</dt><dd>Number of stations actually used</dd><dt>Rule</dt><dd>Largest task time first: at each station, add the longest task whose predecessors are done and that still fits within takt</dd></dl>
+        <div class="ex"><strong>Worked example</strong><code>Takt = 420·60 / 500 = 50.4 s</code><br>The 11 tasks add up to 195 s, so at least ⌈195 / 50.4⌉ = 4 stations. The line fits in 4, giving 195 / (4·50.4) = 96.7% efficiency.</div>
+      </article>
+    </div>
+  </section>
+
+  <section id="history">
+    <div class="histhead"><h2>Last 10 calculations</h2><button class="btn ghost" type="button" id="h-clear">Clear history</button></div>
+    <div class="tblwrap"><table>
+      <thead><tr><th>Time</th><th>Tool</th><th>Inputs</th><th>Result</th></tr></thead>
+      <tbody id="h-body"></tbody>
+    </table></div>
+  </section>
+
+  <section id="pricing">
+    <div class="eyebrow">Plans</div>
+    <h2>Free for class. Pro for the plant floor.</h2>
+    <p class="lede">Students get both calculators for free. Pro adds the tools working engineers need every shift.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Student</h3>
+        <p class="who">For coursework and exam prep</p>
+        <div class="price"><b>$0</b><span>forever</span></div>
+        <ul>
+          <li>EOQ, safety stock, OEE and line balancing</li>
+          <li>Charts and worked formulas</li>
+          <li>Last 10 calculations saved</li>
+          <li>Works in any browser, no sign-up</li>
+          <li class="no">Scenario comparison</li>
+          <li class="no">Export to Excel / PDF</li>
+        </ul>
+        <a class="btn ghost" href="#calc">Start calculating</a>
+      </div>
+      <div class="plan pro">
+        <span class="badge">Most popular</span>
+        <h3>Pro</h3>
+        <p class="who">For engineers in production and supply chain</p>
+        <div class="price"><b>$5</b><span>/ month</span></div>
+        <ul>
+          <li>Everything in Student</li>
+          <li>Scenario comparison: test several demand or cost values side by side</li>
+          <li>EOQ with quantity discounts and multiple products</li>
+          <li>More balancing rules (ranked positional weight, most followers)</li>
+          <li>Unlimited calculation history</li>
+          <li>Export results to Excel and PDF</li>
+          <li>Shift-by-shift OEE tracking</li>
+          <li>No ads</li>
+        </ul>
+        <button class="btn" type="button" id="go-pro">Go Pro</button>
+        <p class="plan-msg" id="pro-msg" role="status"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap"><span>© 2026 OpsLab</span><span>Industrial Engineering · Mission 2</span></div></footer>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const fmt=(n,d=0)=>Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}):'–';
+  const pct=x=>fmt(x*100,1)+'%';
+  const num=id=>parseFloat($(id).value);
+
+  /* Tabs */
+  const tabs=[['tab-eoq','p-eoq'],['tab-ss','p-ss'],['tab-oee','p-oee'],['tab-lb','p-lb']];
+  let lastQ=null;
+  const niceStep=v=>{const p=Math.pow(10,Math.floor(Math.log10(v)));const f=v/p;return (f<1.5?1:f<3?2:f<7?5:10)*p;};
+  function svgKit(svg){svg.innerHTML='';return (n,a,txt)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};}
+  const reduced=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function show(t,scroll){
+    tabs.forEach(([tb,p])=>{const on=tb===t;$(tb).setAttribute('aria-selected',on);$(p).hidden=!on;});
+    try{localStorage.setItem('opslab-tab',t)}catch(e){}
+    $(t).scrollIntoView({block:'nearest',inline:'nearest',behavior:reduced?'auto':'smooth'});
+    if(scroll)$('tablist').scrollIntoView({block:'start',behavior:reduced?'auto':'smooth'});
+  }
+  tabs.forEach(([tb])=>$(tb).addEventListener('click',()=>show(tb,true)));
+  try{const t=localStorage.getItem('opslab-tab');if(t&&$(t))show(t)}catch(e){}
+
+  /* History */
+  let hist=[];
+  try{hist=JSON.parse(localStorage.getItem('opslab-history')||'[]')}catch(e){hist=[]}
+  function saveHist(){try{localStorage.setItem('opslab-history',JSON.stringify(hist))}catch(e){}}
+  function addHist(tool,inputs,result){hist.unshift({t:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),tool,inputs,result});hist=hist.slice(0,10);saveHist();renderHist();}
+  function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+  function renderHist(){
+    const b=$('h-body');
+    if(!hist.length){b.innerHTML='<tr><td colspan="4" class="empty">No saved calculations yet. Press "Calculate &amp; save" on either tool and it will appear here.</td></tr>';return;}
+    b.innerHTML=hist.map(h=>`<tr><td class="num">${esc(h.t)}</td><td><span class="tag">${esc(h.tool)}</span></td><td class="num">${esc(h.inputs)}</td><td class="num"><strong>${esc(h.result)}</strong></td></tr>`).join('');
+  }
+  $('h-clear').addEventListener('click',()=>{hist=[];saveHist();renderHist();});
+
+  /* EOQ */
+  const NS='http://www.w3.org/2000/svg';
+  function eoqCalc(){
+    const D=num('eoq-d'),S=num('eoq-s'),H=num('eoq-h'),days=num('eoq-days'),c=$('eoq-cur').value;
+    if(!(D>0&&S>0&&H>0&&days>0)){$('eoq-err').textContent='Enter positive values for demand, ordering cost, holding cost and working days.';return null;}
+    $('eoq-err').textContent='';
+    const Q=Math.sqrt(2*D*S/H),N=D/Q,T=days/N,TC=N*S+(Q/2)*H;
+    lastQ=Q;
+    $('eoq-q').textContent=fmt(Q,0);
+    $('eoq-n').textContent=fmt(N,1);
+    $('eoq-t').textContent=fmt(T,1);
+    $('eoq-tc').textContent=c+fmt(TC,0);
+    drawChart(D,S,H,Q,TC,c);
+    return {D,S,H,Q,TC,c};
+  }
+  function drawChart(D,S,H,Qs,TCs,c){
+    const svg=$('eoq-chart');svg.innerHTML='';
+    const W=600,Hh=280,m={l:58,r:16,t:14,b:38},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+    const qMin=Qs*0.25,qMax=Qs*2.5;
+    const tc=q=>D/q*S+q/2*H;
+    const yMax=Math.max(tc(qMin),tc(qMax))*1.02;
+    const x=q=>m.l+(q-qMin)/(qMax-qMin)*iw, y=v=>m.t+ih-Math.min(v,yMax)/yMax*ih;
+    const el=(n,a)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e;};
+    const nice=v=>{const p=Math.pow(10,Math.floor(Math.log10(v)));const f=v/p;return (f<1.5?1:f<3?2:f<7?5:10)*p;};
+    const yStep=nice(yMax/4);
+    for(let v=0;v<=yMax;v+=yStep){el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'var(--line)','stroke-width':1});const t=el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'});t.textContent=c+fmt(v,0);}
+    const xStep=nice((qMax-qMin)/5);
+    for(let q=Math.ceil(qMin/xStep)*xStep;q<=qMax;q+=xStep){const t=el('text',{x:x(q),y:Hh-m.b+18,'text-anchor':'middle'});t.textContent=fmt(q,0);}
+    const xl=el('text',{x:m.l+iw/2,y:Hh-4,'text-anchor':'middle'});xl.textContent='Order quantity Q (units)';
+    const path=f=>{let d='';for(let i=0;i<=120;i++){const q=qMin+(qMax-qMin)*i/120;d+=(i?'L':'M')+x(q).toFixed(1)+' '+y(f(q)).toFixed(1);}return d;};
+    el('path',{d:path(q=>D/q*S),fill:'none',stroke:'var(--steel)','stroke-width':2});
+    el('path',{d:path(q=>q/2*H),fill:'none',stroke:'var(--hold)','stroke-width':2});
+    el('path',{d:path(tc),fill:'none',stroke:'var(--ink)','stroke-width':2.5});
+    el('line',{x1:x(Qs),x2:x(Qs),y1:m.t,y2:m.t+ih,stroke:'var(--muted)','stroke-dasharray':'4 4'});
+    el('circle',{cx:x(Qs),cy:y(TCs),r:6,fill:'var(--accent)',stroke:'var(--ink)','stroke-width':2});
+    const lb=el('text',{x:x(Qs)+10,y:m.t+12});lb.textContent='Q* = '+fmt(Qs,0);lb.setAttribute('style','fill:var(--ink);font-weight:500');
+  }
+  $('f-eoq').addEventListener('submit',e=>{e.preventDefault();const r=eoqCalc();if(r)addHist('EOQ',`D=${fmt(r.D)} S=${r.c}${fmt(r.S,2)} H=${r.c}${fmt(r.H,2)}`,`Q*=${fmt(r.Q)} · TC=${r.c}${fmt(r.TC)}`);});
+  $('f-eoq').addEventListener('input',eoqCalc);
+  $('eoq-reset').addEventListener('click',()=>{$('eoq-d').value=12000;$('eoq-s').value=150;$('eoq-h').value=4;$('eoq-days').value=250;eoqCalc();});
+
+  /* OEE */
+  function oeeCalc(){
+    const P=num('oee-pt'),Dt=num('oee-dt'),C=num('oee-ct'),T=num('oee-tot'),R=num('oee-rej');
+    const bad=m=>{$('oee-err').textContent=m;return null;};
+    if(!(P>0&&C>0&&T>0)) return bad('Planned time, ideal cycle time and total units must be greater than zero.');
+    if(!(Dt>=0&&Dt<P)) return bad('Downtime must be between 0 and the planned production time.');
+    if(!(R>=0&&R<=T)) return bad('Defective units cannot exceed total units.');
+    const run=(P-Dt)*60,A=(P-Dt)/P,Pf=C*T/run,Q=(T-R)/T,O=A*Pf*Q;
+    if(Pf>1) bad('Performance is over 100%. Check the ideal cycle time: the line produced faster than its ideal rate.'); else $('oee-err').textContent='';
+    $('oee-v').textContent=pct(O);
+    $('oee-a').textContent=pct(A);$('oee-p').textContent=pct(Pf);$('oee-qv').textContent=pct(Q);
+    $('oee-ab').style.width=Math.min(A,1)*100+'%';$('oee-pb').style.width=Math.min(Pf,1)*100+'%';$('oee-qb').style.width=Math.min(Q,1)*100+'%';
+    const pill=$('oee-pill');
+    pill.textContent=O>=.85?'World class (≥85%)':O>=.60?'Typical (60–85%)':'Low (<60%)';
+    const losses=[['Availability',A,'downtime (breakdowns, changeovers)'],['Performance',Pf,'speed loss (slow cycles, small stops)'],['Quality',Q,'defects and rework']].sort((a,b)=>a[1]-b[1]);
+    $('oee-note').textContent=`Biggest loss: ${losses[0][0]} at ${pct(losses[0][1])}. Focus improvement on ${losses[0][2]}.`;
+    return {P,Dt,C,T,R,O};
+  }
+  $('f-oee').addEventListener('submit',e=>{e.preventDefault();const r=oeeCalc();if(r)addHist('OEE',`${fmt(r.P)} min, ${fmt(r.Dt)} down, ${fmt(r.T)} units, ${fmt(r.R)} bad`,`OEE=${pct(r.O)}`);});
+  $('f-oee').addEventListener('input',oeeCalc);
+  $('oee-reset').addEventListener('click',()=>{$('oee-pt').value=420;$('oee-dt').value=47;$('oee-ct').value=1;$('oee-tot').value=19271;$('oee-rej').value=423;oeeCalc();});
+
+  /* Safety stock & reorder point */
+  const Z={'90':1.2816,'95':1.6449,'97.5':1.96,'99':2.3263,'99.9':3.0902};
+  function ssCalc(){
+    const d=num('ss-d'),sd=num('ss-sd'),L=num('ss-l'),lvl=$('ss-z').value,Q=num('ss-q'),oh=num('ss-oh');
+    if(!(d>0&&L>0&&Q>0)){$('ss-err').textContent='Daily demand, lead time and order quantity must be greater than zero.';return null;}
+    if(!(sd>=0&&oh>=0)){$('ss-err').textContent='Standard deviation and stock on hand cannot be negative.';return null;}
+    $('ss-err').textContent='';
+    const z=Z[lvl],SS=z*sd*Math.sqrt(L),DL=d*L,ROP=DL+SS;
+    $('ss-rop').textContent=fmt(ROP,0);
+    $('ss-ss').textContent=fmt(SS,0);
+    $('ss-dl').textContent=fmt(DL,0);
+    $('ss-zv').textContent=fmt(z,3);
+    const pill=$('ss-pill');
+    if(oh<=ROP){pill.className='pill solid-bad';pill.textContent='Order now';$('ss-status').textContent=`Stock on hand (${fmt(oh)}) is at or below the reorder point. Place an order for ${fmt(Q)} units.`;}
+    else{pill.className='pill solid-good';pill.textContent='Stock OK';$('ss-status').textContent=`About ${fmt((oh-ROP)/d,1)} days until stock falls to the reorder point.`;}
+    drawSaw(d,L,SS,ROP,Q);
+    return {d,sd,L,lvl,SS,ROP};
+  }
+  function drawSaw(d,L,SS,ROP,Q){
+    const el=svgKit($('ss-chart'));
+    const W=600,Hh=260,m={l:52,r:70,t:12,b:36},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+    const cyc=Q/d,T=3*cyc,top=SS+Q,yMax=Math.max(top,ROP)*1.1;
+    const x=t=>m.l+t/T*iw,y=v=>m.t+ih-v/yMax*ih;
+    const ys=niceStep(yMax/4);
+    for(let v=0;v<=yMax;v+=ys){el('line',{x1:m.l,x2:m.l+iw,y1:y(v),y2:y(v),stroke:'var(--line)'});el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'},fmt(v));}
+    const xs=niceStep(T/6);
+    for(let t=0;t<=T;t+=xs)el('text',{x:x(t),y:Hh-m.b+18,'text-anchor':'middle'},fmt(t));
+    el('text',{x:m.l+iw/2,y:Hh-4,'text-anchor':'middle'},'Days');
+    el('rect',{x:m.l,y:y(SS),width:iw,height:Math.max(0,y(0)-y(SS)),fill:'var(--hold)','fill-opacity':.15});
+    el('line',{x1:m.l,x2:m.l+iw,y1:y(SS),y2:y(SS),stroke:'var(--hold)','stroke-width':1.5});
+    el('text',{x:m.l+iw+6,y:y(SS)+4,style:'fill:var(--hold)'},'SS '+fmt(SS));
+    el('line',{x1:m.l,x2:m.l+iw,y1:y(ROP),y2:y(ROP),stroke:'var(--steel)','stroke-width':1.5,'stroke-dasharray':'6 4'});
+    el('text',{x:m.l+iw+6,y:y(ROP)+4,style:'fill:var(--steel)'},'ROP '+fmt(ROP));
+    let dPath=`M${x(0)} ${y(top)}`;
+    for(let k=0;k<3;k++){dPath+=` L${x((k+1)*cyc)} ${y(SS)}`;if(k<2)dPath+=` L${x((k+1)*cyc)} ${y(top)}`;}
+    el('path',{d:dPath,fill:'none',stroke:'var(--ink)','stroke-width':2.2,'stroke-linejoin':'round'});
+    for(let k=0;k<3;k++){const t=(k+1)*cyc-L;if(t>=0)el('circle',{cx:x(t),cy:y(ROP),r:5,fill:'var(--accent)',stroke:'var(--ink)','stroke-width':1.5});}
+  }
+  $('f-ss').addEventListener('submit',e=>{e.preventDefault();const r=ssCalc();if(r)addHist('SS',`d=${fmt(r.d,1)}/day σ=${fmt(r.sd,1)} L=${fmt(r.L,1)}d ${r.lvl}%`,`ROP=${fmt(r.ROP)} · SS=${fmt(r.SS)}`);});
+  $('f-ss').addEventListener('input',ssCalc);
+  $('ss-useq').addEventListener('click',()=>{if(lastQ){$('ss-q').value=Math.round(lastQ);ssCalc();}});
+  $('ss-reset').addEventListener('click',()=>{$('ss-d').value=48;$('ss-sd').value=8;$('ss-l').value=5;$('ss-z').value='95';$('ss-q').value=949;$('ss-oh').value=400;ssCalc();});
+
+  /* Takt time & line balancing */
+  const LB_EX=[['A',45,''],['B',11,'A'],['C',9,'B'],['D',50,''],['E',15,'D'],['F',12,'C'],['G',12,'C'],['H',12,'E'],['I',12,'E'],['J',8,'F, G, H, I'],['K',9,'J']];
+  let tasks=LB_EX.map(([id,t,pre])=>({id,t,pre}));
+  function renderTasks(){
+    $('lb-body').innerHTML=tasks.map((k,i)=>`<tr>
+      <td class="idc"><input id="lb-${i}-id" data-i="${i}" data-k="id" aria-label="Task ${i+1} name" value="${esc(k.id)}"></td>
+      <td class="tc"><input id="lb-${i}-t" data-i="${i}" data-k="t" type="number" min="0" step="any" aria-label="Task ${i+1} time in seconds" value="${esc(k.t)}"></td>
+      <td><input id="lb-${i}-pre" data-i="${i}" data-k="pre" aria-label="Task ${i+1} predecessors" placeholder="none" value="${esc(k.pre)}"></td>
+      <td class="xc"><button type="button" class="xbtn" data-x="${i}" aria-label="Remove task ${esc(k.id)}">×</button></td></tr>`).join('');
+  }
+  $('lb-body').addEventListener('input',e=>{const t=e.target;if(t.dataset.k)tasks[+t.dataset.i][t.dataset.k]=t.value;});
+  $('lb-body').addEventListener('click',e=>{const b=e.target.closest('[data-x]');if(!b)return;tasks.splice(+b.dataset.x,1);renderTasks();lbCalc();});
+  $('lb-add').addEventListener('click',()=>{
+    const used=new Set(tasks.map(t=>String(t.id).trim().toUpperCase()));let c=65;while(used.has(String.fromCharCode(c))&&c<90)c++;
+    tasks.push({id:String.fromCharCode(c),t:10,pre:''});renderTasks();lbCalc();
+    const inp=$(`lb-${tasks.length-1}-t`);if(inp)inp.focus();
+  });
+  $('lb-reset').addEventListener('click',()=>{tasks=LB_EX.map(([id,t,pre])=>({id,t,pre}));$('lb-time').value=420;$('lb-dem').value=500;renderTasks();lbCalc();});
+
+  function balance(list,takt){
+    const done=new Set(),stations=[];
+    while(done.size<list.length){
+      const st={tasks:[],load:0};
+      for(;;){
+        const cand=list.filter(k=>!done.has(k.id)&&k.pre.every(p=>done.has(p))&&k.t<=takt-st.load+1e-9);
+        if(!cand.length)break;
+        cand.sort((a,b)=>b.t-a.t||a.id.localeCompare(b.id));
+        const pick=cand[0];st.tasks.push(pick.id);st.load+=pick.t;done.add(pick.id);
+      }
+      if(!st.tasks.length){
+        const ready=list.filter(k=>!done.has(k.id)&&k.pre.every(p=>done.has(p)));
+        if(ready.length){const big=ready.sort((a,b)=>b.t-a.t)[0];throw new Error(`Task ${big.id} takes ${fmt(big.t,1)} s, which is longer than the takt time (${fmt(takt,1)} s). Split the task or lower the demand.`);}
+        throw new Error('The "Must follow" lists form a loop, so some tasks can never start. Check the predecessors.');
+      }
+      stations.push(st);
+    }
+    return stations;
+  }
+  function lbCalc(){
+    const err=m=>{$('lb-err').textContent=m;return null;};
+    const avail=num('lb-time'),dem=num('lb-dem');
+    if(!(avail>0&&dem>0))return err('Available time and demand must be greater than zero.');
+    if(!tasks.length)return err('Add at least one task.');
+    const list=[],ids=new Set();
+    for(const k of tasks){
+      const id=String(k.id).trim().toUpperCase(),t=parseFloat(k.t);
+      if(!id)return err('Every task needs a name.');
+      if(ids.has(id))return err(`Task name ${id} is used twice.`);
+      if(!(t>0))return err(`Task ${id} needs a time greater than zero.`);
+      ids.add(id);list.push({id,t,pre:String(k.pre||'').toUpperCase().split(/[\s,;]+/).filter(Boolean)});
+    }
+    for(const k of list)for(const p of k.pre){if(!ids.has(p))return err(`Task ${k.id} must follow ${p}, but there is no task ${p}.`);if(p===k.id)return err(`Task ${k.id} cannot follow itself.`);}
+    const takt=avail*60/dem,sum=list.reduce((a,k)=>a+k.t,0);
+    let st;try{st=balance(list,takt);}catch(e){return err(e.message);}
+    $('lb-err').textContent='';
+    const n=st.length,eff=sum/(n*takt),nMin=Math.ceil(sum/takt-1e-9),maxLoad=Math.max(...st.map(s=>s.load));
+    $('lb-takt').textContent=fmt(takt,1);
+    $('lb-min').textContent=nMin;
+    $('lb-n').textContent=n;
+    $('lb-eff').textContent=pct(eff);
+    $('lb-list').innerHTML=st.map((s,i)=>`<li><b>S${i+1}</b><span style="flex:1;color:var(--ink)">${esc(s.tasks.join(', '))}</span><span>${fmt(s.load,1)} s · idle ${fmt(takt-s.load,1)} s</span></li>`).join('');
+    $('lb-note').textContent=`Total work content is ${fmt(sum,1)} s. Balance delay is ${pct(1-eff)} (idle time across all stations).`+(n>nMin?` The line uses ${n-nMin} more station${n-nMin>1?'s':''} than the theoretical minimum because of task order and sizes.`:' The line reaches the theoretical minimum number of stations.');
+    drawStations(st,takt,maxLoad);
+    return {avail,dem,takt,n,eff,count:list.length};
+  }
+  function drawStations(st,takt,maxLoad){
+    const el=svgKit($('lb-chart'));
+    const W=600,Hh=250,m={l:46,r:16,t:20,b:30},iw=W-m.l-m.r,ih=Hh-m.t-m.b;
+    const yMax=Math.max(takt,maxLoad)*1.18,y=v=>m.t+ih-v/yMax*ih;
+    const ys=niceStep(yMax/4);
+    for(let v=0;v<=yMax;v+=ys){el('line',{x1:m.l,x2:m.l+iw,y1:y(v),y2:y(v),stroke:'var(--line)'});el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'},fmt(v)+'s');}
+    const bw=iw/st.length,w=Math.min(bw*0.62,70);
+    st.forEach((s,i)=>{
+      const cx=m.l+bw*(i+.5),isMax=s.load===maxLoad;
+      el('rect',{x:cx-w/2,y:y(s.load),width:w,height:y(0)-y(s.load),rx:3,fill:isMax?'var(--ink)':'var(--steel)'});
+      el('text',{x:cx,y:y(s.load)-6,'text-anchor':'middle',style:'fill:var(--ink)'},s.tasks.join(' '));
+      el('text',{x:cx,y:Hh-m.b+18,'text-anchor':'middle'},'S'+(i+1));
+    });
+    el('line',{x1:m.l,x2:m.l+iw,y1:y(takt),y2:y(takt),stroke:'var(--hold)','stroke-width':2,'stroke-dasharray':'7 4'});
+    el('text',{x:m.l+iw,y:y(takt)-6,'text-anchor':'end',style:'fill:var(--hold);font-weight:500'},'Takt '+fmt(takt,1)+' s');
+  }
+  $('f-lb').addEventListener('submit',e=>{e.preventDefault();const r=lbCalc();if(r)addHist('LINE',`${fmt(r.avail)} min / ${fmt(r.dem)} units, ${r.count} tasks`,`takt=${fmt(r.takt,1)}s · ${r.n} stations · ${pct(r.eff)}`);});
+  $('f-lb').addEventListener('input',lbCalc);
+
+  $('go-pro').addEventListener('click',()=>{$('pro-msg').textContent='Pro is coming soon. This is a class demo, so no payment is taken.';});
+
+  renderTasks();eoqCalc();ssCalc();oeeCalc();lbCalc();renderHist();
+})();
+</script>
+</body>
+</html>
